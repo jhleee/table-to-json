@@ -2,7 +2,6 @@ import React, { useState, ClipboardEvent, ChangeEvent } from "react";
 import { HelpCircle, X } from "lucide-react";
 
 interface TreeNode {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
@@ -42,9 +41,10 @@ const ClipboardTable: React.FC = () => {
       headers.forEach((header, j) => {
         const value = row[j];
         if (value !== "" || emptyValueOption !== "omit") {
-          // 'XX.'로 시작하는 헤더를 배열로 처리
-          if (header.startsWith("XX.")) {
-            setNestedValue(item, `XX[]${header.slice(2)}`, value);
+          const arrayMatch = header.match(/^(.+)\[\](.*)$/);
+          if (arrayMatch) {
+            const [, arrayName, remaining] = arrayMatch;
+            setNestedValue(item, `${arrayName}[]${remaining}`, value);
           } else {
             setNestedValue(item, header, value);
           }
@@ -161,7 +161,61 @@ const ClipboardTable: React.FC = () => {
             >
               <X size={24} />
             </button>
-            {/* 설명 텍스트 및 예제는 그대로 유지 */}
+            <h4 className="font-bold mb-2">사용 방법:</h4>
+            <ol className="list-decimal list-inside">
+              <li>스프레드시트에서 데이터를 복사합니다.</li>
+              <li>아래 텍스트 영역에 붙여넣기(Ctrl+V 또는 ⌘+V)합니다.</li>
+              <li>헤더에 `[]`가 포함된 열은 배열로 처리됩니다.</li>
+              <li>
+                예: `XX[]` 또는 `ABC[]명`과 같은 헤더는 배열로 변환됩니다.
+              </li>
+              <li>결과는 테이블과 JSON 형식으로 표시됩니다.</li>
+              <li>
+                예시:
+                <div className="flex flex-col flex-wrap gap-1">
+                  <pre className="text-xs p-1 border-dashed border rounded">
+                    {`이름	나이	주소.도시	주소.우편번호	취미[]	가족[]이름	가족[]나이
+김철수	30	서울	12345	축구	김아빠	60
+김철수	30	서울	12345	농구	김엄마	55
+김철수	30	서울	12345	독서	김동생	25
+이영희	28	부산	67890	요리	이아빠	58
+이영희	28	부산	67890	여행	이엄마	53
+박민준	35	대전	54321	등산	박아내	32
+박민준	35	대전	54321	낚시	박자녀	5`}
+                  </pre>
+                  <pre className="text-xs p-1 border-dashed border rounded">{`[
+  {
+    "이름": "김철수",
+    "나이": "30",
+    "주소": {
+      "도시": "서울",
+      "우편번호": "12345"
+    },
+    "취미": [
+      "축구",
+      "농구",
+      "독서"
+    ],
+    "가족": [
+      {
+        "이름": "김아빠",
+        "나이": "60"
+      },
+      {
+        "이름": "김엄마",
+        "나이": "55"
+      },
+      {
+        "이름": "김동생",
+        "나이": "25"
+      }
+    ]
+  },
+  ...
+]`}</pre>
+                </div>
+              </li>
+            </ol>
           </div>
         )}
 
