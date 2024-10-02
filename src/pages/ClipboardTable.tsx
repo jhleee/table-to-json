@@ -41,12 +41,23 @@ const ClipboardTable: React.FC = () => {
       headers.forEach((header, j) => {
         const value = row[j];
         if (value !== "" || emptyValueOption !== "omit") {
-          const arrayMatch = header.match(/^(.+)\[\](.*)$/);
+          const arrayMatch = header.match(/^(.+)\[\]\.?$/);
           if (arrayMatch) {
-            const [, arrayName, remaining] = arrayMatch;
-            setNestedValue(item, `${arrayName}[]${remaining}`, value);
+            const [, arrayName, subField] = arrayMatch;
+            if (!item[arrayName]) item[arrayName] = [];
+            if (subField) {
+              // 배열 안에 객체로 처리
+              const lastIndex = item[arrayName].length - 1;
+              if (lastIndex === -1 || item[arrayName][lastIndex][subField]) {
+                item[arrayName].push({ [subField]: value });
+              } else {
+                item[arrayName][lastIndex][subField] = value;
+              }
+            } else {
+              setNestedValue(item, `${arrayName}[]`, value, true);
+            }
           } else {
-            setNestedValue(item, header, value);
+            setNestedValue(item, header, value, false);
           }
         }
         if (!header.includes(".") && !header.includes("[]")) {
@@ -64,14 +75,18 @@ const ClipboardTable: React.FC = () => {
     return result;
   };
 
-  const setNestedValue = (obj: TreeNode, path: string, value: unknown) => {
+  const setNestedValue = (
+    obj: TreeNode,
+    path: string,
+    value: unknown,
+    isArray: boolean
+  ) => {
     const parts = path.split(/\.|\[|\]/).filter(Boolean);
     let current = obj;
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       const isLastPart = i === parts.length - 1;
-      const isArray = path.includes("[]");
 
       if (isLastPart) {
         if (value === "") {
@@ -83,30 +98,37 @@ const ClipboardTable: React.FC = () => {
               current[part] = "";
               break;
             case "omit":
-              // Don't add the property if it's empty
               break;
             default:
               current[part] = null;
           }
         } else {
-          current[part] = value;
+          if (isArray) {
+            if (!Array.isArray(current[part])) {
+              current[part] = [];
+            }
+            current[part].push(value);
+          } else {
+            current[part] = value;
+          }
         }
       } else {
-        if (isArray && !Array.isArray(current[part])) {
-          current[part] = [];
-        } else if (!isArray && typeof current[part] !== "object") {
-          current[part] = {};
-        }
-        if (isArray) {
+        if (parts[i + 1]?.includes("[]")) {
+          if (!current[part]) {
+            current[part] = [];
+          }
+          // 배열 안에 중첩 객체가 있는 경우
           if (
             current[part].length === 0 ||
-            typeof current[part][current[part].length - 1][parts[i + 1]] !==
-              "undefined"
+            typeof current[part][current[part].length - 1] !== "object"
           ) {
             current[part].push({});
           }
           current = current[part][current[part].length - 1];
         } else {
+          if (!current[part]) {
+            current[part] = {};
+          }
           current = current[part];
         }
       }
